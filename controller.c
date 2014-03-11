@@ -203,12 +203,12 @@ short checkState(short left_ind, short right_ind, short thold, short last_state)
 		error = 0;	
 	} 
 	else if( left_ind - right_ind > thold)
-	//Left inductor more positive)
+	//Left inductor more positive, speed up right wheel
 	{
 		error = 1;	
 	} 
 	else if( right_ind - left_ind > thold)
-	//Right inuctor more positive
+	//Right inuctor more positive, speed up left wheel
 	{
 		error = -1;	
 	}
@@ -234,6 +234,12 @@ short followWire(short error)
 	return total;
 }
 
+void drive(short total)
+{
+	pwm_left(abs(-base_spd+total));
+	pwm_right(base_spd+total);
+	
+}
 
 
 /********************************************************/
