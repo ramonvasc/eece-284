@@ -15,9 +15,11 @@
 #define timer_mode TMOD
 #define timer0 TH0
 
+
 unsigned char pwm_width;
 bit pwm_flag = 0;
 
+short last_error = 0;
 
 void initSerialPort(void)
 {
@@ -188,6 +190,50 @@ void main (void)
 	}
 	
 }
+
+
+
+/***********PID CONTROLLER CODE FROM HERE*************/
+
+short checkState(short left_ind, short right_ind, short thold, short last_state)
+//Function checks the error state of the rover. 
+{
+	if(  abs(left_ind - right_ind) < thold)
+	{
+		error = 0;	
+	} 
+	else if( left_ind - right_ind > thold)
+	//Left inductor more positive)
+	{
+		error = 1;	
+	} 
+	else if( right_ind - left_ind > thold)
+	//Right inuctor more positive
+	{
+		error = -1;	
+	}
+	
+	return error;
+	
+}
+
+short followWire(short error)
+{
+	//Resets state timer
+	if(error != last_error)
+	{
+		recent_error = last_error;
+		prev_t = t;
+		t = 1;
+	}
+	
+	total = pgain*error + dgain*(error-recent_error)/(prevt+t);
+	
+	last_error = error;
+	
+	return total;
+}
+
 
 
 /********************************************************/
