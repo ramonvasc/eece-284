@@ -175,17 +175,15 @@ void main (void)
 	//write('1');
 	Delay(1000);
 	
-		printf("\r\nADC values:\r\n");
+		//printf("\r\nADC values:\r\n");
 		
 	
 	
 	while(1)
 	{
-		char buf[16];
-		//int n=sprintf(buffer, "0x%02x, 0x%02x, 0x%02x, 0x%02x\r", AD1DAT0, AD1DAT1, AD1DAT2, AD1DAT3)
-		printf('0x%02x,0x%02x,0x%02x,0x%02x\r',AD1DAT0, AD1DAT1, AD1DAT2, AD1DAT3);
-		printf("LUCAS");
-		writeString(buf);
+		char buffer [33];
+		sprintf(buffer,"%d",AD1DAT0);
+		writeString(buffer);
 		Wait1S();
 	}
 	
