@@ -191,3 +191,77 @@ void main (void)
 
 
 /********************************************************/
+
+// Reading turns 
+int middleInductor ( MiddleInductorV )
+{
+	int countWires = 0;
+	int cycles = 0;
+	int thresHigh= 2.00; 
+	int threshLow
+	int Flag =0; 
+	int a=1;
+	if(a=1)
+	{
+		if (MiddleInductorV >= threshHigh)
+		{
+			Flag = 1;
+			 
+			//Delay (300)
+			
+		}
+		
+		if (Flag 
+		= 1 && middleInductor <= threshLow)
+		{
+			Flag = 0;
+			countWires ++;
+		}
+		
+		
+		if (countWires = 2 && cyles > 4 )
+		{
+			LeftTurn();
+			countWires=0;
+		
+		}
+		if (countWires = 3)
+		{
+			 RightTurn();
+			 countWires=0;
+		}
+		if (countWires = 4 &&  Start==TRUE) 	//Start is a variable that will be defined globally to indicate if we are starting or ending the timer
+
+		{
+
+			StartTimer();
+			Start = FALSE;
+			countWires=0;
+			
+		  
+		}
+		if (countWires = 4 &&  Start==FALSE) 	//Start is a variable that will be defined globally to indicate if we are starting or ending the timer
+
+		{
+
+			ENDTimer();//tHIS WILL STOP THE ROBOT AND END THE TIMER
+			
+			
+		  
+		}
+	}
+}
+
+void LeftTurn(void)
+{
+}
+void RightTurn(void)
+{
+	
+}
+void Starttimer (void)
+{
+	
+}
+}
+
