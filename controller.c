@@ -44,7 +44,7 @@ void pwmPort (void)
 
 void initLcdPort(void)
 {
-	P2M1=0x00;
+	P2M1=0x00; //set port 2 to be output
 	P2M2=0x00;
 }
 /**********************************************************/ 
@@ -121,7 +121,7 @@ void pwmSetupRight(int controlRight)
 	PwmWidthRight = controlRight; //pwm duty cycle
 	IEN0_7 =1;
 	IEN0_3 =1; //timer 1 interrupt
-	TCON_4 =1; //timer control to set an interrupt flag
+	TCON_6 =2; //timer control to set an interrupt flag
 }
 /**********************************************************/ 
 
@@ -132,7 +132,7 @@ void pwmTimerRight() interrupt 2
 		PwmFlagRight = 1; //set pwm flag
 		PWMPINRIGHT = 1; //set pwm o/p pin
 		TIMER1 = PwmWidthRight; //load timer
-		TCON_4 = 0; //clear interrupt flag
+		TCON_7 = 0; //clear interrupt flag
 		return;
 	}
 	else //start low level
@@ -140,7 +140,7 @@ void pwmTimerRight() interrupt 2
 		PwmFlagRight = 0; //clear pwm flag
 		PWMPINRIGHT = 0; //clear pwm o/p pin
 		TIMER1 = 255 - PwmWidthRight; //load timer
-		TCON_4 = 0;	//clear interrupt flag
+		TCON_7 = 0;	//clear interrupt flag
 		return;
 	}
 }			
@@ -211,7 +211,7 @@ void main (void)
 	pwmPort();
 	pwmSetupLeft(100);
 	pwmTimerLeft();	//timer function
-	pwmSetupRight(10);
+	pwmSetupRight(100);
 	pwmTimerRight();	//timer function
 	initADC();
 	commandLcd(0x80);
