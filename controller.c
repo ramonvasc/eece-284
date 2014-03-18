@@ -10,16 +10,18 @@
 #define LCD_PORT P2
 #define RW P1_6
 #define DI P1_4
-#define E P1_7
-#define PWMPIN P3_0
-#define timer_mode TMOD
-#define timer0 TH0
+#define ENABLELCD P1_7
+#define PWMPINLEFT P3_0
+#define PWMPINRIGHT P3_1
+#define TIMER_MODE TMOD
+#define TIMER0 TH0
+#define TIMER1 TH1
 
+unsigned char PwmWidthLeft;
+bit PwmFlagLeft = 0;
+unsigned char PwmWidthRight;
+bit PwmFlagRight = 0;
 
-unsigned char pwm_width;
-bit pwm_flag = 0;
-
-short last_error = 0;
 
 void initSerialPort(void)
 {
@@ -33,16 +35,16 @@ void initSerialPort(void)
 }
 /**********************************************************/ 
 
-void PWMPort (void)
+void pwmPort (void)
 {
 	P3M1=0x00;	//set port 3 to be output
 	P3M2=0x00;
 }
 /**********************************************************/ 
 
-void initLCDPort(void)
+void initLcdPort(void)
 {
-	P2M1=0x00;
+	P2M1=0x00; //set port 2 to be output
 	P2M2=0x00;
 }
 /**********************************************************/ 
@@ -60,99 +62,117 @@ void Delay(unsigned int i)
 }
 /**********************************************************/ 
 
-void NybbleDelay()
-{
- E = 1; 
- Delay(1); //enable pulse width >= 300ns 
- E = 0; //Clock enable: falling edge
-}
-/**********************************************************/
-
-void command(char i) 
+void commandLcd(char inputData) 
 { 
- LCD_PORT = i; //put data on output Port 
+ LCD_PORT = inputData; //put data on output Port 
  DI =0; //D/I=LOW : send instruction 
  RW =0; //R/W=LOW : Write 
- NybbleDelay();
- i = i<<4;
- LCD_PORT = i;
- NybbleDelay();
+ ENABLELCD = 1; 
+ Delay(1); //enable pulse width >= 300ns 
+ ENABLELCD = 0; //Clock enable: falling edge 
 } 
 /**********************************************************/ 
 
-void write(char i) 
+void writeLcd(char inputData) 
 { 
- LCD_PORT = i; //put data on output Port 
+ LCD_PORT = inputData; //put data on output Port 
  DI =1; //D/I=LOW : send data 
  RW =0; //R/W=LOW : Write 
- NybbleDelay();
- i = i<<4;
- LCD_PORT = i; //put data on output Port 
- NybbleDelay();
+ ENABLELCD = 1; 
+ Delay(1); //enable pulse width >= 300ns 
+ ENABLELCD = 0; //Clock enable: falling edge 
 } 
 /**********************************************************/ 
 
-void initLCD() 
-{ 
- 
- LCD_PORT = 0;
- Delay(100); //Wait >15 msec after power is applied 
- LCD_PORT = 0x30; //put 0x30 on the output port
- Delay(30); //must wait 5ms, busy flag not available 
- NybbleDelay(); //command 0x30 = Wake up
- Delay(10); //must wait 160us, busy flag not available 
- NybbleDelay(); //command 0x30 = Wake up #2
- Delay(10); //must wait 160us, busy flag not available
- NybbleDelay(); //command 0x30 = Wake up #3
- Delay(10); //can check busy flag now instead of delay
- LCD_PORT = 0x20; //put 0x20 on the output port
- NybbleDelay(); //function set: 4-bit interface 
- command(0x28); //Function set: 4-bit/2-line 
- command(0x10); //Set cursor 
- command(0x0F); //Display ON; Blinking cursor 
- command(0x06); //Entry mode set 
-}
-/**********************************************************/ 
-
-void writeString (char* str)
+void pwmSetupLeft(int controlLeft)
 {
- int i;
- for (i=0;i<strlen(str);i++)
- {
-  write(str[i]);
-  }
-}
-/**********************************************************/ 
-	
-void pwm_setup()
-{
-	timer_mode = 0;
-	pwm_width = 10; //duty cycle
+	TIMER_MODE = 0; //set to counter mode
+	PwmWidthLeft = controlLeft; //pwm duty cycle
 	IEN0_7 =1;
-	IEN0_1 =1;
-	TCON_4 =1; //timer control
+	IEN0_1 =1; //timer 0 interrupt
+	TCON_4 =1; //timer control to set an interrupt flag
 }
 /**********************************************************/ 
 
-void tim() interrupt 1
+void pwmTimerLeft() interrupt 1
 {
-	if(!pwm_flag) //start of high level
+	if(!PwmFlagLeft) //start of high level
 	{
-		pwm_flag = 1; //set flag
-		PWMPIN = 1; //set pwm o/p pin
-		timer0 = pwm_width; //load timer
+		PwmFlagLeft = 1; //set pwm flag
+		PWMPINLEFT = 1; //set pwm o/p pin
+		TIMER0 = PwmWidthLeft; //load timer
 		TCON_5 = 0; //clear interrupt flag
 		return;
 	}
 	else //start low level
 	{
-		pwm_flag = 0; //clear flag
-		PWMPIN = 0; //clear pwm o/p pin
-		timer0 = 255 - pwm_width; //load timer
+		PwmFlagLeft = 0; //clear pwm flag
+		PWMPINLEFT = 0; //clear pwm o/p pin
+		TIMER0 = 255 - PwmWidthLeft; //load timer
 		TCON_5 = 0;	//clear interrupt flag
 		return;
 	}
 }		
+/**********************************************************/ 
+
+void pwmSetupRight(int controlRight)
+{
+	TIMER_MODE = 0; //set to counter mode
+	PwmWidthRight = controlRight; //pwm duty cycle
+	IEN0_7 =1;
+	IEN0_3 =1; //timer 1 interrupt
+	TCON_6 =1; //timer control to set an interrupt flag
+}
+/**********************************************************/ 
+
+void pwmTimerRight() interrupt 3
+{
+	if(!PwmFlagRight) //start of high level
+	{
+		PwmFlagRight = 1; //set pwm flag
+		PWMPINRIGHT = 1; //set pwm o/p pin
+		TIMER1 = PwmWidthRight; //load timer
+		TCON_7 = 0; //clear interrupt flag
+		return;
+	}
+	else //start low level
+	{
+		PwmFlagRight = 0; //clear pwm flag
+		PWMPINRIGHT = 0; //clear pwm o/p pin
+		TIMER1 = 255 - PwmWidthRight; //load timer
+		TCON_7 = 0;	//clear interrupt flag
+		return;
+	}
+}			
+/**********************************************************/ 
+
+void initLcd() 
+{ 
+ 
+ ENABLELCD = 0; //ENABLELCD = 0; 
+ 
+ Delay(100); //Wait >15 msec after power is applied 
+ commandLcd(0x30); //command 0x30 = Wake up 
+ Delay(30); //must wait 5ms, busy flag not available 
+ commandLcd(0x30); //command 0x30 = Wake up #2 
+ Delay(10); //must wait 160us, busy flag not available 
+ commandLcd(0x30); //command 0x30 = Wake up #3 
+ Delay(10); //must wait 160us, busy flag not available 
+ commandLcd(0x38); //Function set: 8-bit/2-line 
+ commandLcd(0x10); //Set cursor 
+ commandLcd(0x0c); //Display ON; Cursor ON 
+ commandLcd(0x06); //Entry mode set 
+}
+/**********************************************************/ 
+
+void writeLcdString (char* inputString)
+{
+ int i;
+ for (i=0;i<strlen(inputString);i++)
+ {
+  writeLcd(inputString[i]);
+  }
+}
 /**********************************************************/ 
 
 void Wait1S (void)
@@ -168,99 +188,55 @@ L1: djnz R0, L1 ; 2 machine cycles-> 2*0.27126us*184=100us
 }
 /**********************************************************/ 
 
-void InitADC(void)
+void initADC(void)
 {
 	// Set adc1 channel pins as input only 
-	P0M1 |= (P0M1_4 | P0M1_3 | P0M1_2 | P0M1_1);
-	P0M2 &= ~(P0M1_4 | P0M1_3 | P0M1_2 | P0M1_1);
+	P0M1 |= (P0M1_4 | P0M1_3 | P0M1_2 | P0M1_1 | P0M1_0);
+	P0M2 &= ~(P0M1_4 | P0M1_3 | P0M1_2 | P0M1_1 | P0M1_0);
 
 	BURST1=1; //Autoscan continuos conversion mode
 	ADMODB = CLK0; //ADC1 clock is 7.3728MHz/2
-	ADINS  = (ADI13|ADI12|ADI11|ADI10); // Select the four channels for conversion
+	ADINS  = (ADI13|ADI12|ADI11|ADI10|ADI01); // Select the five channels for conversion
 	ADCON1 = (ENADC1|ADCS10); //Enable the converter and start immediately
-	while((ADCI1&ADCON1)==0); //Wait for first conversion to complete
+	ADCON0 = (ENADC1|ADCS00);
+	while((ADCI1&ADCON1&ADCI0&ADCON0)==0); //Wait for first conversion to complete
 }
 /**********************************************************/ 
 
 void main (void)
 {
 	initSerialPort();
-	initLCDPort();
-	initLCD();
-	PWMPort();
-	pwm_setup();
-	tim();	//timer function
-	InitADC();
-	command(0x80);
-	command(0x01); // clear the lcd
-	command(0x14); //move the cursor one block to the right
-	//writeString("testando denovo");	
-	//write('1');
-	Delay(1000);
-	
-		//printf("\r\nADC values:\r\n");
-		
+	initLcdPort();
+	initLcd();
+	pwmPort();
+	pwmSetupLeft(100);
+	pwmTimerLeft();	//timer function
+	pwmSetupRight(10);
+	pwmTimerRight();	//timer function
+	initADC();
+	commandLcd(0x80);
+	commandLcd(0x01); // clear the lcd
+	commandLcd(0x14); //move the cursor one block to the right
+	//writeLcdString("testando denovo");	
+	//writeLcd('1');
+	Delay(1000);		
 	
 	
 	while(1)
 	{
-		char buffer [33];
-		sprintf(buffer,"%d",AD1DAT0);
-		writeString(buffer);
+		char AdcBuffer [4];
+		sprintf(AdcBuffer,"%f",((0.0386*AD1DAT3)-0.042)); //ADC values to be 
+		writeLcdString(AdcBuffer);
+		commandLcd(0x02);
 		Wait1S();
 	}
 	
 }
 
-
-
-/***********PID CONTROLLER CODE FROM HERE*************/
-
-short checkState(short left_ind, short right_ind, short thold, short last_state)
-//Function checks the error state of the rover. 
-{
-	if(  abs(left_ind - right_ind) < thold)
-	{
-		error = 0;	
-	} 
-	else if( left_ind - right_ind > thold)
-	//Left inductor more positive, speed up right wheel
-	{
-		error = 1;	
-	} 
-	else if( right_ind - left_ind > thold)
-	//Right inuctor more positive, speed up left wheel
-	{
-		error = -1;	
-	}
-	
-	return error;
-	
-}
-
-short followWire(short error)
-{
-	//Resets state timer
-	if(error != last_error)
-	{
-		recent_error = last_error;
-		prev_t = t;
-		t = 1;
-	}
-	
-	total = pgain*error + dgain*(error-recent_error)/(prevt+t);
-	
-	last_error = error;
-	
-	return total;
-}
-
-void drive(short total)
-{
-	pwm_left(abs(-base_spd+total));
-	pwm_right(base_spd+total);
-	
-}
-
+//AD0DAT1 - Port 0.0
+//AD1DAT0 - Port 0.1
+//AD1DAT1 - Port 0.2
+//AD1DAT2 - Port 0.3
+//AD1DAT3 - Port 0.4
 
 /********************************************************/
