@@ -197,35 +197,36 @@ int middleInductor ( MiddleInductorV )
 {
 	int countWires = 0;
 	int cycles = 0;
+	
+	//The above three variables should be globally defined.
+	
 	int thresHigh= 2.00; 
-	int threshLow
-	int Flag =0; 
-	int a=1;
-	if(a=1)
-	{
-		if (MiddleInductorV >= threshHigh)
+	int timeThresh=3;
+	float threshLow = 0.1;
+	int flag;
+	float Time0;
+	float Time1;
+	
+		if (MiddleInductorV >= threshHigh && Flag == 0)
 		{
 			Flag = 1;
-			 
-			//Delay (300)
-			
 		}
 		
-		if (Flag 
-		= 1 && middleInductor <= threshLow)
+		if (Flag == 1 && middleInductor <= threshLow)
 		{
 			Flag = 0;
 			countWires ++;
+			time0 = timefunction();
 		}
 		
 		
-		if (countWires = 2 && cyles > 4 )
+		if (countWires == 2 && (time0-timefunction())>timeThresh )
 		{
 			LeftTurn();
 			countWires=0;
 		
 		}
-		if (countWires = 3)
+		if (countWires == 3 && (time0-timefunction())>timeThresh)
 		{
 			 RightTurn();
 			 countWires=0;
@@ -254,10 +255,12 @@ int middleInductor ( MiddleInductorV )
 
 void LeftTurn(void)
 {
+	//Send a  Vlotage stronger PWM to the rhight wheel than to the left wheel
+	
 }
 void RightTurn(void)
 {
-	
+	//Send a  Vlotage stronger PWM to the rhight wheel than to the left wheel
 }
 void Starttimer (void)
 {
