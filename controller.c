@@ -121,11 +121,11 @@ void pwmSetupRight(int controlRight)
 	PwmWidthRight = controlRight; //pwm duty cycle
 	IEN0_7 =1;
 	IEN0_3 =1; //timer 1 interrupt
-	TCON_6 =2; //timer control to set an interrupt flag
+	TCON_6 =1; //timer control to set an interrupt flag
 }
 /**********************************************************/ 
 
-void pwmTimerRight() interrupt 2
+void pwmTimerRight() interrupt 3
 {
 	if(!PwmFlagRight) //start of high level
 	{
@@ -211,7 +211,7 @@ void main (void)
 	pwmPort();
 	pwmSetupLeft(100);
 	pwmTimerLeft();	//timer function
-	pwmSetupRight(100);
+	pwmSetupRight(10);
 	pwmTimerRight();	//timer function
 	initADC();
 	commandLcd(0x80);
