@@ -200,7 +200,7 @@ void initADC(void)
 	ADMODB = CLK0; //ADC1 clock is 7.3728MHz/2
 	ADINS  = (ADI13|ADI12|ADI11|ADI10|ADI01); // Select the five channels for conversion
 	ADCON1 = (ENADC1|ADCS10); //Enable the converter and start immediately
-	ADCON0 = (ENADC1|ADCS00);
+	ADCON0 = (ENADC0|ADCS00);
 	while((ADCI1&ADCON1&ADCI0&ADCON0)==0); //Wait for first conversion to complete
 }
 /**********************************************************/ 
