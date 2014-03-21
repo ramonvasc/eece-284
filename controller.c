@@ -271,3 +271,48 @@ void main (void)
 //AD1DAT3 - Port 0.4
 
 /********************************************************/
+short checkState(short left_ind, short right_ind, short thold, short last_state)
+//Function checks the error state of the rover. 
+{
+	if(  abs(left_ind - right_ind) < thold)
+	{
+		error = 0;	
+	} 
+	else if( left_ind - right_ind > thold)
+	//Left inductor more positive, speed up right wheel
+	{
+		error = 1;	
+	} 
+	else if( right_ind - left_ind > thold)
+	//Right inuctor more positive, speed up left wheel
+	{
+		error = -1;	
+	}
+
+	return error;
+
+}
+
+short followWire(short error)
+{
+	//Resets state timer
+	if(error != last_error)
+	{
+		recent_error = last_error;
+		prev_t = t;
+		t = 1;
+	}
+
+	total = pgain*error + dgain*(error-recent_error)/(prevt+t);
+
+	last_error = error;
+
+	return total;
+}
+
+void drive(short total)
+{
+	pwm_left(abs(-base_spd+total));
+	pwm_right(base_spd+total);
+
+}
