@@ -21,8 +21,8 @@ unsigned char PwmWidthLeft;
 bit PwmFlagLeft = 0;
 unsigned char PwmWidthRight;
 bit PwmFlagRight = 0;
-int I = 0;
-int J = 0;
+int timerCounter = 0;
+//int J = 0;
 
 
 void initSerialPort(void)
@@ -103,9 +103,7 @@ void pwmTimerLeft() interrupt 1
 		PwmFlagLeft = 1; //set pwm flag
 		PWMPINLEFT = 1; //set pwm o/p pin
 		TIMER0 = PwmWidthLeft; //load timer
-		TCON_5 = 0; //clear interrupt flag
-		
-		
+		TCON_5 = 0; //clear interrupt flag		
 		return;
 	}
 	else //start low level
@@ -114,7 +112,6 @@ void pwmTimerLeft() interrupt 1
 		PWMPINLEFT = 0; //clear pwm o/p pin
 		TIMER0 = 255 - PwmWidthLeft; //load timer
 		TCON_5 = 0;	//clear interrupt flag
-		
 		return;
 	}
 }		
@@ -233,16 +230,29 @@ void main (void)
 	}*/
 	while(1)
 	{
-		char AdcBuffer [4];
-		//sprintf(AdcBuffer,"%f",((0.0386*AD1DAT3)-0.042)); //ADC values to be 
-	
-		if(I % 34 == 0)
-			sprintf(AdcBuffer,"%d",I/34);
+		char lcdBuffer [4];
 		
-		writeLcdString(AdcBuffer);
-		commandLcd(0x02);
+	
+		if(timerCounter % 34 == 0){
+			sprintf(lcdBuffer,"%d",timerCounter/34); //timer to be displayed
+			commandLcd(0x02);
+			writeLcdString(lcdBuffer);
+		    
+			}
+		sprintf(lcdBuffer,"%.1f",((0.0386*AD1DAT2)-0.042)); //ADC values to be displayed
+		commandLcd(0x48);
+		sprintf(lcdBuffer,"%.1f",((0.0386*AD1DAT3)-0.042)); //ADC values to be displayed
+		commandLcd(0xC0);
+		writeLcdString(lcdBuffer);
+		sprintf(lcdBuffer,"%d",PwmWidthRight); //Right pwm frequency
+		commandLcd(0xC5);
+		writeLcdString(lcdBuffer);
+		sprintf(lcdBuffer,"%d",PwmWidthLeft); //Left pwm frequency
+		commandLcd(0xC8);
+		writeLcdString(lcdBuffer);
+	    
 		Wait1S();
-		I++;
+		timerCounter++;
 	}
 	
 }
