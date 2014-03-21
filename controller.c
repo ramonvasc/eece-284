@@ -205,6 +205,36 @@ void initADC(void)
 }
 /**********************************************************/ 
 
+void lcdWriteADC (void) {
+ 	char lcdBuffer [4];
+	sprintf(lcdBuffer,"%.1f",((0.0386*AD1DAT3)-0.042)); //ADC 4 values to be displayed
+	commandLcd(0xC0);
+	writeLcdString(lcdBuffer);
+	sprintf(lcdBuffer,"%.1f",((0.0386*AD1DAT2)-0.042)); //ADC 3 values to be displayed
+	commandLcd(0xC6);
+	writeLcdString(lcdBuffer);	
+}
+/**********************************************************/ 
+
+void lcdWriteTimer (void) {
+	char lcdBuffer [4];
+	sprintf(lcdBuffer,"%d",timerCounter/34); //timer to be displayed
+	commandLcd(0x02);
+	writeLcdString(lcdBuffer);
+}
+/**********************************************************/ 
+
+void lcdWritePWM (void) {
+	char lcdBuffer [4];
+		sprintf(lcdBuffer,"%d",PwmWidthRight); //Right pwm frequency
+		commandLcd(0x86);
+		writeLcdString(lcdBuffer);
+		sprintf(lcdBuffer,"%d",PwmWidthLeft); //Left pwm frequency
+		commandLcd(0x8A);
+		writeLcdString(lcdBuffer);	
+}
+/**********************************************************/ 
+
 void main (void)
 {
 	initSerialPort();
@@ -219,38 +249,15 @@ void main (void)
 	commandLcd(0x80);
 	commandLcd(0x01); // clear the lcd
 	commandLcd(0x14); //move the cursor one block to the right
-	//writeLcdString("testando denovo");	
-	//writeLcd('1');
 	Delay(1000);		
 	
-	/*for(I=0;I<255;I++){
-	pwmSetupRight(I);
-	pwmTimerRight();
-	Wait1S();
-	}*/
 	while(1)
 	{
-		char lcdBuffer [4];
-		
-	
 		if(timerCounter % 34 == 0){
-			sprintf(lcdBuffer,"%d",timerCounter/34); //timer to be displayed
-			commandLcd(0x02);
-			writeLcdString(lcdBuffer);
-		    
-			}
-		sprintf(lcdBuffer,"%.1f",((0.0386*AD1DAT2)-0.042)); //ADC values to be displayed
-		commandLcd(0x48);
-		sprintf(lcdBuffer,"%.1f",((0.0386*AD1DAT3)-0.042)); //ADC values to be displayed
-		commandLcd(0xC0);
-		writeLcdString(lcdBuffer);
-		sprintf(lcdBuffer,"%d",PwmWidthRight); //Right pwm frequency
-		commandLcd(0xC5);
-		writeLcdString(lcdBuffer);
-		sprintf(lcdBuffer,"%d",PwmWidthLeft); //Left pwm frequency
-		commandLcd(0xC8);
-		writeLcdString(lcdBuffer);
-	    
+		lcdWriteTimer();
+		}
+		lcdWritePWM();
+		lcdWriteADC();	    
 		Wait1S();
 		timerCounter++;
 	}
