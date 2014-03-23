@@ -30,12 +30,17 @@ short last_error = 0;
 short recent_error = 0;
 short total = 0;
 
+short leftFlag = 0;
+short rightFlag = 0;
+bit centered = 1;
+
 short t = 0;
 short prev_t = 0;
-int base_spd = 100;
+int base_spd = 200;
 
-short pgain = 1;
-short dgain = 1;
+short pgain = 30;
+short dgain = 10;
+short igain = 4;
 
 void initSerialPort(void)
 {
@@ -222,7 +227,8 @@ void lcdWriteADC (void) {
 	int right_ind = AD1DAT1;
 	
  	char lcdBuffer [4];
-	sprintf(lcdBuffer,"%.1f",((0.0386*AD1DAT3)-0.042)); //ADC 4 values to be displayed
+	//sprintf(lcdBuffer,"%.1f",((0.0386*AD1DAT3)-0.042)); //ADC 4 values to be displayed
+	sprintf(lcdBuffer,"%d",t); //ADC 4 values to be displayed
 	commandLcd(0xC0);
 	writeLcdString(lcdBuffer);
 	//sprintf(lcdBuffer,"%.1f",((0.0386*AD1DAT2)-0.042)); //ADC 3 values to be displayed
@@ -243,10 +249,10 @@ void lcdWriteTimer (void) {
 
 void lcdWritePWM (void) {
 	char lcdBuffer [4];
-		sprintf(lcdBuffer,"%d",abs(-base_spd+total)); //Left pwm frequency
+		sprintf(lcdBuffer,"%d",PwmWidthLeft); //Left pwm frequency
 		commandLcd(0x86);
 		writeLcdString(lcdBuffer);
-		sprintf(lcdBuffer,"%d",base_spd+total); //Right pwm frequency
+		sprintf(lcdBuffer,"%d",PwmWidthRight); //Right pwm frequency
 		commandLcd(0x8A);
 		writeLcdString(lcdBuffer);	
 }
@@ -263,21 +269,37 @@ void lcdWritePWM (void) {
 short checkState(short left_ind, short right_ind, short thold)
 //Function checks the error state of the rover. 
 {
-	if(  abs(left_ind - right_ind) < thold)
-	{
-		error = 0;	
-	} 
-	else if( left_ind - right_ind > thold)
+
+
+	if( left_ind - right_ind > thold)
 	//Left inductor more positive, speed up right wheel
 	{
-		error = 1;	
+		error = 1;
+		leftFlag = 1;
+		rightFlag = 0;
 	} 
 	else if( right_ind - left_ind > thold)
-	//Right inuctor more positive, speed up left wheel
+	//Right inductor more positive, speed up left wheel
 	{
 		error = -1;	
+		rightFlag = 1;
+		leftFlag = 0;
+	}
+`	else if( abs(left_ind - right_ind) < thold && rightFlag == 1)
+	{
+		error = -1;
+	}
+	else if( abs(left_ind - right_ind) < thold && leftFlag == 1)
+	{
+		error = 1;
+	}
+	
+	if(abs(left_ind-right_ind) < 15 && left_ind > 115 && right_ind > 115)
+	{
+		error = 0;
 	}
 
+	
 	return error;
 
 }
@@ -294,31 +316,63 @@ short pidController(short error)
 		prev_t = t;
 		t = 1;
 	}
-
-	total = pgain*error + dgain*(error-recent_error)/(prev_t+t);
-
+	
+	
+	total = pgain*error + igain*error*t + (short)(dgain*(error-recent_error)/(t+prev_t));
+	
+	
 	last_error = error;
 	
-	t++;
-
+	if(timerCounter % 1 ==0)
+	{
+		t++;
+	}
 	return total;
 }
 
 /******************************************************/
 void drive(short total)
 {
+
 	pwmSetupLeft(abs(-base_spd+total));
 	pwmTimerLeft();
 	
 	pwmSetupRight(base_spd+total);
 	pwmTimerRight();
+
+	if(-base_spd+total < -255)
+	{
+		pwmSetupLeft(255);
+		pwmTimerLeft();	
+			
+	}
+	
+	if(-base_spd+total > 0)
+	{
+		pwmSetupLeft(0);
+		pwmTimerLeft();	
+			
+	}
+	
+	if(base_spd+total > 255)
+	{
+		pwmSetupRight(255);
+		pwmTimerRight();
+	}
+	
+	if(base_spd+total < 0)
+	{
+		pwmSetupRight(0);
+		pwmTimerRight();
+	}
+
+
+	
 }
 
 
 
 /******************************************************/
-
-
 
 
 
@@ -359,9 +413,11 @@ void main (void)
 		{
 			lcdWritePWM();
 			lcdWriteADC();	
-			error = checkState(AD1DAT0,AD1DAT1,200);
-			total = pidController(error);
+			
 		}
+		
+		error = checkState(AD1DAT0,AD1DAT1,8);
+		total = pidController(error);
 		drive(total);
 		   
 		Wait1S();
