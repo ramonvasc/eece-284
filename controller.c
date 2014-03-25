@@ -196,16 +196,17 @@ void main (void)
 int middleInductor ( MiddleInductorV )
 {
 	int countWires = 0;
-	int cycles = 0;
-	
+	bool Start==TRUE
+
 	//The above three variables should be globally defined.
 	
 	int thresHigh= 2.00; 
-	int timeThresh=3;
+	int timeThresh=2;
 	float threshLow = 0.1;
 	int flag;
 	float Time0;
 	float Time1;
+	float endTime;
 	
 		if (MiddleInductorV >= threshHigh && Flag == 0)
 		{
@@ -216,17 +217,17 @@ int middleInductor ( MiddleInductorV )
 		{
 			Flag = 0;
 			countWires ++;
-			time0 = timefunction();
+			time0 = RunTime;
 		}
 		
 		
-		if (countWires == 2 && (time0-timefunction())>timeThresh )
+		if (countWires == 2 && (time0-RunTime)>timeThresh )
 		{
 			LeftTurn();
 			countWires=0;
 		
 		}
-		if (countWires == 3 && (time0-timefunction())>timeThresh)
+		if (countWires == 3 && (time0-RunTime)>timeThresh)
 		{
 			 RightTurn();
 			 countWires=0;
@@ -235,7 +236,7 @@ int middleInductor ( MiddleInductorV )
 
 		{
 
-			StartTimer();
+			RunTime=0;
 			Start = FALSE;
 			countWires=0;
 			
@@ -244,8 +245,17 @@ int middleInductor ( MiddleInductorV )
 		if (countWires = 4 &&  Start==FALSE) 	//Start is a variable that will be defined globally to indicate if we are starting or ending the timer
 
 		{
+			endTime = RunTime;
+			pwmSetupLeft(0);
+			pwmTimerLeft();	//timer function
+			pwmSetupRight(0);
+			pwmTimerRight();	//timer function
+			char lcdBuffer [4];
+			sprintf(lcdBuffer,"%d",endTime); //endtime to be displayed
+			commandLcd(0x02);
+			writeLcdString(lcdBuffer);
 
-			ENDTimer();//tHIS WILL STOP THE ROBOT AND END THE TIMER
+		 //tHIS WILL STOP THE ROBOT AND END THE TIMER
 			
 			
 		  
@@ -255,16 +265,30 @@ int middleInductor ( MiddleInductorV )
 
 void LeftTurn(void)
 {
-	//Send a  Vlotage stronger PWM to the rhight wheel than to the left wheel
-	
+	int speedRight = 200;
+	in speedLeft = 100;
+	while ( we see nosignal) 
+	{
+		pwmSetupLeft(speedLeft);
+		pwmTimerLeft();	//timer function
+		pwmSetupRight(SpeedRight);
+		pwmTimerRight();	//timer function
+	}
+		
+
 }
+
 void RightTurn(void)
 {
-	//Send a  Vlotage stronger PWM to the rhight wheel than to the left wheel
-}
-void Starttimer (void)
-{
+	int speedRight = 100;
+	in speedLeft = 200;
 	
-}
+	while ( we see nosignal) 
+	{
+		pwmSetupLeft(speedLeft);
+		pwmTimerLeft();	//timer function
+		pwmSetupRight(SpeedRight);
+		pwmTimerRight();	//timer function
+	}//Send a  Vlotage stronger PWM to the rhight wheel than to the left wheel
 }
 
