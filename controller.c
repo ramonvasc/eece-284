@@ -24,6 +24,41 @@ bit PwmFlagRight = 0;
 int timerCounter = 0;
 //int J = 0;
 
+//PID Variables
+short error = 0;
+short last_error = 0;
+short recent_error = 0;
+short total = 0;
+
+short leftFlag = 0;
+short rightFlag = 0;
+bit centered = 1;
+
+short t = 0;
+short prev_t = 0;
+int base_spd = 200;
+
+short pgain = 30;
+short dgain = 10;
+short igain = 4;
+
+//Clock Variables
+unsigned int clock = 0;
+
+
+//Middle Inductor Variables
+int countWires = 0;
+bit start = 1;
+	
+int thold_high = 175; 
+int timeThresh=3;
+float thold_low = 170;
+bit flag;
+bit turning = 0;
+float time0;
+//float time1;
+float endTime;
+unsigned int turn_timer = 0;
 
 void initSerialPort(void)
 {
@@ -40,7 +75,7 @@ void initSerialPort(void)
 void pwmPort (void)
 {
 	P3M1=0x00;	//set port 3 to be output
-	P3M2=0x00;
+	P3M2=0x03;
 }
 /**********************************************************/ 
 
@@ -169,11 +204,11 @@ void initLcd()
 
 void writeLcdString (char* inputString)
 {
- int i;
- for (i=0;i<strlen(inputString);i++)
- {
-  writeLcd(inputString[i]);
-  }
+	int i;
+ 	for (i=0;i<strlen(inputString);i++)
+ 	{
+  		writeLcd(inputString[i]);
+  	}
 }
 /**********************************************************/ 
 
@@ -200,51 +235,301 @@ void initADC(void)
 	ADMODB = CLK0; //ADC1 clock is 7.3728MHz/2
 	ADINS  = (ADI13|ADI12|ADI11|ADI10|ADI01); // Select the five channels for conversion
 	ADCON1 = (ENADC1|ADCS10); //Enable the converter and start immediately
-	ADCON0 = (ENADC0|ADCS00);
+	ADCON0 = (ENADC1|ADCS00);
 	while((ADCI1&ADCON1&ADCI0&ADCON0)==0); //Wait for first conversion to complete
 }
 /**********************************************************/ 
 
 void lcdWriteADC (void) {
+	int left_ind = AD1DAT0;
+	int right_ind = AD1DAT1;
+	
  	char lcdBuffer [4];
-	sprintf(lcdBuffer,"%.1f",((0.0386*AD1DAT3)-0.042)); //ADC 4 values to be displayed
+	//sprintf(lcdBuffer,"%.1f",((0.0386*AD1DAT3)-0.042)); //ADC 4 values to be displayed
+	sprintf(lcdBuffer,"%d",countWires); //ADC 4 values to be displayed
 	commandLcd(0xC0);
 	writeLcdString(lcdBuffer);
-	sprintf(lcdBuffer,"%.1f",((0.0386*AD1DAT2)-0.042)); //ADC 3 values to be displayed
+	//sprintf(lcdBuffer,"%.1f",((0.0386*AD1DAT2)-0.042)); //ADC 3 values to be displayed
+	sprintf(lcdBuffer,"%d",left_ind-right_ind); //ADC 3 values to be displayed
 	commandLcd(0xC6);
-	writeLcdString(lcdBuffer);	
+	writeLcdString(lcdBuffer);
+		
 }
 /**********************************************************/ 
 
 void lcdWriteTimer (void) {
 	char lcdBuffer [4];
-	sprintf(lcdBuffer,"%d",timerCounter/34); //timer to be displayed
+	sprintf(lcdBuffer,"%d",clock-turn_timer); //timer to be displayed
 	commandLcd(0x02);
 	writeLcdString(lcdBuffer);
 }
 /**********************************************************/ 
 
 void lcdWritePWM (void) {
+
+	int left_ind = AD1DAT0;
+	int right_ind = AD1DAT1;
+	int middle_ind = AD1DAT3;
+	
 	char lcdBuffer [4];
-		sprintf(lcdBuffer,"%d",PwmWidthRight); //Right pwm frequency
+		sprintf(lcdBuffer,"%d",middle_ind); //Left pwm frequency
 		commandLcd(0x86);
 		writeLcdString(lcdBuffer);
-		sprintf(lcdBuffer,"%d",PwmWidthLeft); //Left pwm frequency
+		sprintf(lcdBuffer,"%d",turning); //Right pwm frequency
 		commandLcd(0x8A);
 		writeLcdString(lcdBuffer);	
 }
+
+//AD0DAT1 - Port 0.0
+//AD1DAT0 - Port 0.1
+//AD1DAT1 - Port 0.2
+//AD1DAT2 - Port 0.3
+//AD1DAT3 - Port 0.4
+
+
 /**********************************************************/ 
+
+
+
+short checkState(short left_ind, short right_ind, short thold)
+//Function checks the error state of the rover. 
+{
+
+
+	if( left_ind - right_ind > thold)
+	//Left inductor more positive, speed up right wheel
+	{
+		error = 1;
+		leftFlag = 1;
+		rightFlag = 0;
+	} 
+	else if( right_ind - left_ind > thold)
+	//Right inductor more positive, speed up left wheel
+	{
+		error = -1;	
+		rightFlag = 1;
+		leftFlag = 0;
+	}
+`	else if( abs(left_ind - right_ind) < thold && rightFlag == 1)
+	{
+		error = -1;
+	}
+	else if( abs(left_ind - right_ind) < thold && leftFlag == 1)
+	{
+		error = 1;
+	}
+	
+	if(abs(left_ind-right_ind) < 15 && left_ind > 130 && right_ind > 130)
+	{
+		error = 0;
+	}
+
+	
+	return error;
+
+}
+
+
+/******************************************************/
+
+short pidController(short error)
+{
+	//Resets state timer
+	if(error != last_error)
+	{
+		recent_error = last_error;
+		prev_t = t;
+		t = 1;
+	}
+	
+	
+	total = pgain*error + igain*error*t + (short)(dgain*(error-recent_error)/(t+prev_t));
+	
+	
+	last_error = error;
+	
+	if(timerCounter % 1 ==0)
+	{
+		t++;
+	}
+	
+	return total;
+}
+
+/******************************************************/
+void drive(short total)
+{
+
+	pwmSetupLeft(abs(-base_spd+total));
+	pwmTimerLeft();
+	
+	pwmSetupRight(base_spd+total);
+	pwmTimerRight();
+
+	if(-base_spd+total < -255)
+	{
+		pwmSetupLeft(255);
+		pwmTimerLeft();	
+			
+	}
+	
+	if(-base_spd+total > 0)
+	{
+		pwmSetupLeft(0);
+		pwmTimerLeft();	
+			
+	}
+	
+	if(base_spd+total > 255)
+	{
+		pwmSetupRight(255);
+		pwmTimerRight();
+	}
+	
+	if(base_spd+total < 0)
+	{
+		pwmSetupRight(0);
+		pwmTimerRight();
+	}
+
+
+	
+}
+
+
+
+/******************************************************/
+
+void LeftTurn()
+{
+	int speedRight = 25;
+	int speedLeft = 210;
+	
+	
+	if((clock-turn_timer) <= 2)
+	{
+		pwmSetupLeft(speedLeft);
+		pwmTimerLeft();	//timer function
+		pwmSetupRight(speedRight);
+		pwmTimerRight();	//timer function
+	}
+	else
+	{
+		countWires=0;
+		turning = 0;
+	}
+}
+
+
+void middleInductor(int middle_ind)
+{
+
+	
+
+		if (middle_ind >= thold_high && flag == 0)
+		{
+			flag = 1;
+		}
+
+		if (flag == 1 && middle_ind < thold_low)
+		{
+			flag = 0;
+			countWires++;
+			time0 = clock;
+		}
+
+		
+		//if(countWires == 2 && abs(clock-time0) > timeThresh )
+		if(countWires == 2)
+		{
+			if(turning == 0)
+			{
+				turn_timer = clock;
+				turning = 1;
+			}
+			
+			LeftTurn();
+		}
+		
+		/*
+		if (countWires == 3 && (time0-clock)>timeThresh)
+		{
+			turning = 1;
+			 RightTurn();
+			 countWires=0;
+		}
+		
+		/*
+		if (countWires = 4 &&  start == 1) 	//Start is a variable that will be defined globally to indicate if we are starting or ending the timer
+
+		{
+
+			//clock=0;
+			start = 0;
+			countWires=0;
+
+
+		}
+		if (countWires = 4 &&  Start==FALSE) 	//Start is a variable that will be defined globally to indicate if we are starting or ending the timer
+
+		{
+			//endTime = clock;
+			pwmSetupLeft(0);
+			pwmTimerLeft();	//timer function
+			pwmSetupRight(0);
+			pwmTimerRight();	//timer function
+			
+			
+			char lcdBuffer [4];
+			sprintf(lcdBuffer,"%d",endTime); //endtime to be displayed
+			commandLcd(0x02);
+			writeLcdString(lcdBuffer);
+
+		 //tHIS WILL STOP THE ROBOT AND END THE TIMER
+		}
+		
+		*/
+}
+
+
+
+
+/*
+void RightTurn(void)
+{
+	int speedRight = 100;
+	int speedLeft = 200;
+
+	while(error) 
+	{
+		pwmSetupLeft(speedLeft);
+		pwmTimerLeft();	//timer function
+		pwmSetupRight(SpeedRight);
+		pwmTimerRight();	//timer function
+	}
+	
+	//Send a  Vlotage stronger PWM to the rhight wheel than to the left wheel
+}
+
+
+
+/*********************************************************************************************/
+
+
+
 
 void main (void)
 {
+
+	
 	initSerialPort();
 	initLcdPort();
 	initLcd();
 	pwmPort();
-	pwmSetupLeft(100);
-	pwmTimerLeft();	//timer function
-	pwmSetupRight(10);
-	pwmTimerRight();	//timer function
+	//pwmSetupLeft(100);
+	//pwmTimerLeft();	//timer function
+	//pwmSetupRight(10);
+	//pwmTimerRight();	//timer function
 	initADC();
 	commandLcd(0x80);
 	commandLcd(0x01); // clear the lcd
@@ -253,11 +538,40 @@ void main (void)
 	
 	while(1)
 	{
-		if(timerCounter % 34 == 0){
-		lcdWriteTimer();
+		if(timerCounter % 17 == 0)
+		{
+			commandLcd(0x01); // clear the lcd
+			}
+			
+			
+		//Writes info to LCD
+		if(timerCounter % 34 == 0)
+		{
+			clock++;
+			lcdWriteTimer();
 		}
-		lcdWritePWM();
-		lcdWriteADC();	    
+		 
+		
+		//PID Controller
+		if(timerCounter % 17 == 0)
+		{
+			lcdWritePWM();
+			lcdWriteADC();	
+			
+		}
+		
+		if(timerCounter % 4 == 0)
+		{
+			middleInductor(AD1DAT3);
+		}
+		
+		if(turning == 0)
+		{
+			error = checkState(AD1DAT0,AD1DAT1,8);
+			total = pidController(error);
+			drive(total);
+		}
+		   
 		Wait1S();
 		timerCounter++;
 	}
@@ -269,50 +583,5 @@ void main (void)
 //AD1DAT1 - Port 0.2
 //AD1DAT2 - Port 0.3
 //AD1DAT3 - Port 0.4
-
 /********************************************************/
-short checkState(short left_ind, short right_ind, short thold, short last_state)
-//Function checks the error state of the rover. 
-{
-	if(  abs(left_ind - right_ind) < thold)
-	{
-		error = 0;	
-	} 
-	else if( left_ind - right_ind > thold)
-	//Left inductor more positive, speed up right wheel
-	{
-		error = 1;	
-	} 
-	else if( right_ind - left_ind > thold)
-	//Right inuctor more positive, speed up left wheel
-	{
-		error = -1;	
-	}
 
-	return error;
-
-}
-
-short followWire(short error)
-{
-	//Resets state timer
-	if(error != last_error)
-	{
-		recent_error = last_error;
-		prev_t = t;
-		t = 1;
-	}
-
-	total = pgain*error + dgain*(error-recent_error)/(prevt+t);
-
-	last_error = error;
-
-	return total;
-}
-
-void drive(short total)
-{
-	pwm_left(abs(-base_spd+total));
-	pwm_right(base_spd+total);
-
-}
